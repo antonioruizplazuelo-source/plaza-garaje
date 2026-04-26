@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="theme-color" content="#534AB7"/>
+<meta name="description" content="Gestión de pagos de plaza de garaje en alquiler"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="Plaza Garaje"/>
+<title>Plaza de Garaje</title>
+<link rel="manifest" href="manifest.json"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --c-accent:#534AB7;--c-accent-light:#EEEDFE;--c-accent-dark:#3C3489;
+  --c-ok:#0F6E56;--c-ok-light:#E1F5EE;
+  --c-warn:#993C1D;--c-warn-light:#FAECE7;
+  --c-amber:#854F0B;--c-amber-light:#FAEEDA;
+  --bg:#ffffff;--bg2:#f5f5f3;--bg3:#eeede8;
+  --text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;
+  --border:rgba(0,0,0,0.12);--border2:rgba(0,0,0,0.22);
+  --radius:8px;--radius-lg:12px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1a1a18;--bg2:#232320;--bg3:#2c2c2a;
+    --text:#f1efe8;--text2:#a0a09a;--text3:#6b6b66;
+    --border:rgba(255,255,255,0.12);--border2:rgba(255,255,255,0.22);
+    --c-accent-light:#26215C;
+  }
+}
+body{background:var(--bg);color:var(--text);min-height:100vh;}
+.app{max-width:420px;margin:0 auto;padding-bottom:2rem;}
+.header{padding:1.25rem 1rem 0.75rem;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;}
+.header h1{font-size:20px;font-weight:600;color:var(--text);}
+.header p{font-size:12px;color:var(--text2);margin-top:2px;}
+.bell-btn{background:none;border:0.5px solid var(--border2);border-radius:var(--radius);padding:6px 12px;cursor:pointer;font-size:13px;color:var(--text2);display:flex;align-items:center;gap:5px;}
+.bell-btn.on{border-color:var(--c-accent);color:var(--c-accent);background:var(--c-accent-light);}
+.tabs{display:flex;border-bottom:0.5px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.tab{flex:1;min-width:72px;padding:0.6rem 0.25rem;font-size:12px;font-weight:500;text-align:center;color:var(--text2);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;white-space:nowrap;}
+.tab.active{color:var(--text);border-bottom:2px solid var(--c-accent);}
+.section{padding:0 1rem;}
+.metric-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:1rem;}
+.metric{background:var(--bg2);border-radius:var(--radius);padding:0.8rem 1rem;}
+.metric-label{font-size:11px;color:var(--text2);margin-bottom:4px;}
+.metric-value{font-size:20px;font-weight:600;color:var(--text);}
+.metric-value.ok{color:var(--c-ok);}
+.metric-value.warn{color:var(--c-warn);}
+.card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:0.75rem;}
+.badge{display:inline-block;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;margin-top:6px;}
+.badge.pagado{background:var(--c-ok-light);color:var(--c-ok);}
+.badge.pendiente{background:var(--c-warn-light);color:var(--c-warn);}
+.badge.parcial{background:var(--c-amber-light);color:var(--c-amber);}
+.alert-card{background:var(--c-amber-light);border:0.5px solid #EF9F27;border-radius:var(--radius-lg);padding:0.85rem 1.25rem;margin-bottom:1rem;font-size:13px;color:var(--c-amber);}
+.alert-card strong{color:#633806;}
+.btn-primary{width:100%;padding:0.8rem;font-size:15px;font-weight:600;border:none;border-radius:var(--radius-lg);background:var(--c-accent);color:#EEEDFE;cursor:pointer;margin-top:0.5rem;}
+.btn-primary:active{background:var(--c-accent-dark);}
+.btn-outline{width:100%;padding:0.7rem;font-size:14px;font-weight:500;border:0.5px solid var(--c-accent);border-radius:var(--radius-lg);background:none;color:var(--c-accent);cursor:pointer;margin-top:0.5rem;}
+.btn-sm{padding:0.5rem 1rem;font-size:13px;font-weight:500;border:0.5px solid var(--border2);border-radius:var(--radius);background:none;color:var(--text2);cursor:pointer;}
+.form-row{margin-bottom:0.8rem;}
+.form-label{font-size:12px;color:var(--text2);margin-bottom:5px;display:block;}
+.form-row input,.form-row select,.form-row textarea{
+  width:100%;font-size:15px;padding:10px 12px;
+  border:0.5px solid var(--border2);border-radius:var(--radius);
+  background:var(--bg);color:var(--text);
+  -webkit-appearance:none;appearance:none;
+}
+.form-row select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b6b66' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+.form-row textarea{resize:vertical;min-height:70px;}
+.section-title{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.8rem;padding-top:0.25rem;}
+.empty{text-align:center;padding:2.5rem 1rem;color:var(--text2);font-size:14px;line-height:1.6;}
+.chart-bar-wrap{margin-bottom:0.8rem;}
+.bar-label{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:4px;}
+.bar-track{height:8px;background:var(--bg2);border-radius:4px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:4px;background:var(--c-accent);}
+.bar-fill.ok{background:var(--c-ok);}
+.info-row{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:0.5px solid var(--border);}
+.info-row:last-child{border-bottom:none;}
+.info-key{font-size:12px;color:var(--text2);min-width:85px;padding-top:1px;}
+.info-val{font-size:14px;color:var(--text);word-break:break-word;flex:1;}
+.export-row{display:flex;gap:8px;margin-top:0.75rem;flex-wrap:wrap;}
+.export-row .btn-sm{flex:1;text-align:center;min-width:90px;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2C2C2A;color:#F1EFE8;padding:10px 20px;border-radius:24px;font-size:13px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:99;white-space:nowrap;}
+.toast.show{opacity:1;}
+pre#export-preview{background:var(--bg2);border-radius:var(--radius);padding:0.85rem;font-size:12px;color:var(--text);font-family:monospace;white-space:pre-wrap;max-height:220px;overflow-y:auto;margin-bottom:0.75rem;border:0.5px solid var(--border);}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div>
+      <h1>Plaza de garaje</h1>
+      <p id="sub-date">Cargando...</p>
+    </div>
+    <button class="bell-btn" id="bell-btn" onclick="toggleRecordatorio()">
+      <span id="bell-ico">🔔</span><span id="bell-txt">Recordatorio</span>
+    </button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('resumen')">Resumen</button>
+    <button class="tab" onclick="showTab('historial')">Historial</button>
+    <button class="tab" onclick="showTab('nuevo')">+ Pago</button>
+    <button class="tab" onclick="showTab('arrendador')">Arrendador</button>
+    <button class="tab" onclick="showTab('exportar')">Exportar</button>
+  </div>
+
+  <!-- RESUMEN -->
+  <div id="tab-resumen" class="section" style="padding-top:1rem;">
+    <div id="alert-box"></div>
+    <div class="metric-grid">
+      <div class="metric"><div class="metric-label">Alquiler mensual</div><div class="metric-value" id="met-mensual">—</div></div>
+      <div class="metric"><div class="metric-label">Pagado este año</div><div class="metric-value ok" id="met-pagado">—</div></div>
+      <div class="metric"><div class="metric-label">Meses registrados</div><div class="metric-value" id="met-meses">—</div></div>
+      <div class="metric"><div class="metric-label">Pendientes</div><div class="metric-value warn" id="met-pend">—</div></div>
+    </div>
+    <div class="section-title">Últimos 6 meses</div>
+    <div id="chart-bars"></div>
+    <button class="btn-outline" style="margin-top:1rem;" onclick="showTab('nuevo')">+ Registrar pago</button>
+  </div>
+
+  <!-- HISTORIAL -->
+  <div id="tab-historial" class="section" style="display:none;padding-top:1rem;">
+    <div class="section-title">Todos los pagos</div>
+    <div id="historial-list"></div>
+  </div>
+
+  <!-- NUEVO PAGO -->
+  <div id="tab-nuevo" class="section" style="display:none;padding-top:1rem;">
+    <div class="card">
+      <div class="section-title">Registrar pago</div>
+      <div class="form-row"><label class="form-label">Mes y año</label><input type="month" id="f-mes"/></div>
+      <div class="form-row"><label class="form-label">Importe (€)</label><input type="number" id="f-importe" placeholder="Ej: 85" min="0" step="0.01"/></div>
+      <div class="form-row"><label class="form-label">Estado</label>
+        <select id="f-estado"><option value="pagado">Pagado</option><option value="pendiente">Pendiente</option><option value="parcial">Parcial</option></select>
+      </div>
+      <div class="form-row"><label class="form-label">Fecha de pago</label><input type="date" id="f-fecha"/></div>
+      <div class="form-row"><label class="form-label">Nota</label><input type="text" id="f-nota" placeholder="Ej: Transferencia bancaria"/></div>
+      <button class="btn-primary" onclick="guardarPago()">Guardar pago</button>
+    </div>
+  </div>
+
+  <!-- ARRENDADOR -->
+  <div id="tab-arrendador" class="section" style="display:none;padding-top:1rem;">
+    <div id="arrendador-view"></div>
+    <div id="arrendador-form" style="display:none;">
+      <div class="card">
+        <div class="section-title">Datos del arrendador</div>
+        <div class="form-row"><label class="form-label">Nombre completo</label><input type="text" id="a-nombre" placeholder="Ej: Juan García López"/></div>
+        <div class="form-row"><label class="form-label">Teléfono móvil</label><input type="tel" id="a-movil" placeholder="Ej: 600 123 456"/></div>
+        <div class="form-row"><label class="form-label">Dirección</label><input type="text" id="a-dir" placeholder="Ej: Calle Mayor 12, 1ºA"/></div>
+        <div class="form-row"><label class="form-label">Correo electrónico</label><input type="email" id="a-email" placeholder="Ej: juan@email.com"/></div>
+        <div class="form-row"><label class="form-label">IBAN / cuenta bancaria</label><input type="text" id="a-iban" placeholder="Ej: ES91 2100 0418..."/></div>
+        <div class="form-row"><label class="form-label">Notas varias</label><textarea id="a-notas" placeholder="Contrato nº, cláusulas importantes, etc."></textarea></div>
+        <button class="btn-primary" onclick="guardarArrendador()">Guardar datos</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXPORTAR -->
+  <div id="tab-exportar" class="section" style="display:none;padding-top:1rem;">
+    <div class="card">
+      <div class="section-title">Resumen para compartir</div>
+      <div class="form-row">
+        <label class="form-label">Filtrar por año</label>
+        <select id="exp-anio"></select>
+      </div>
+      <pre id="export-preview"></pre>
+      <div class="export-row">
+        <button class="btn-sm" onclick="copiarResumen()">📋 Copiar</button>
+        <button class="btn-sm" onclick="compartirEmail()">✉️ Correo</button>
+        <button class="btn-sm" onclick="imprimirPDF()">🖨️ PDF</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title">Recordatorio automático</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:0.75rem;">Te avisará el primer día laborable de cada mes si no has registrado el pago.</p>
+      <div id="reminder-status" style="font-size:13px;color:var(--text2);"></div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const MESES_FULL=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+let pagos=[],arrendador={},recordatorioOn=false;
+
+function load(){
+  try{pagos=JSON.parse(localStorage.getItem('plaza_pagos')||'[]');}catch(e){pagos=[];}
+  try{arrendador=JSON.parse(localStorage.getItem('plaza_arr')||'{}');}catch(e){arrendador={};}
+  try{recordatorioOn=localStorage.getItem('plaza_rec')==='1';}catch(e){}
+}
+function save(){
+  try{
+    localStorage.setItem('plaza_pagos',JSON.stringify(pagos));
+    localStorage.setItem('plaza_arr',JSON.stringify(arrendador));
+    localStorage.setItem('plaza_rec',recordatorioOn?'1':'0');
+  }catch(e){}
+}
+load();
+
+function fmt(n){return Number(n).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+function primerDiaLaborable(y,m){
+  let d=new Date(y,m,1);
+  while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1);
+  return d;
+}
+
+function updateBell(){
+  const b=document.getElementById('bell-btn');
+  b.classList.toggle('on',recordatorioOn);
+  document.getElementById('bell-ico').textContent=recordatorioOn?'🔔':'🔕';
+  document.getElementById('bell-txt').textContent=recordatorioOn?'Activo':'Recordatorio';
+  const now=new Date();
+  const pld=primerDiaLaborable(now.getFullYear(),now.getMonth());
+  const rs=document.getElementById('reminder-status');
+  if(rs) rs.textContent=recordatorioOn
+    ?'Próximo aviso: '+pld.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})
+    :'Sin recordatorio activo.';
+}
+
+function toggleRecordatorio(){
+  recordatorioOn=!recordatorioOn;
+  save();updateBell();
+  if(recordatorioOn&&'Notification' in window){
+    Notification.requestPermission().then(p=>{
+      if(p==='granted'){
+        const now=new Date();
+        const pld=primerDiaLaborable(now.getFullYear(),now.getMonth());
+        const diff=pld-now;
+        if(diff>0)setTimeout(()=>{
+          new Notification('Plaza de garaje',{body:'Recuerda pagar el alquiler de tu plaza este mes.',icon:'icon-192.png'});
+        },diff);
+        toast('Recordatorio activado');
+      } else toast('Permiso de notificaciones denegado');
+    });
+  } else if(!recordatorioOn)toast('Recordatorio desactivado');
+}
+
+function alertaVencimiento(){
+  const el=document.getElementById('alert-box');
+  const now=new Date();
+  const pld=primerDiaLaborable(now.getFullYear(),now.getMonth());
+  const diff=Math.ceil((pld-now)/(1000*60*60*24));
+  const mesKey=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const pagado=pagos.find(p=>p.mes===mesKey&&p.estado==='pagado');
+  if(pagado){el.innerHTML='';return;}
+  if(diff<=3&&diff>=0){
+    el.innerHTML='<div class="alert-card"><strong>Aviso:</strong> El primer día laborable es el '+
+      pld.toLocaleDateString('es-ES',{day:'numeric',month:'long'})+
+      (diff===0?' (hoy).':diff===1?' (mañana).':' (en '+diff+' días).')+
+      ' El pago de este mes no está registrado.</div>';
+  } else el.innerHTML='';
+}
+
+function renderMetrics(){
+  const anio=new Date().getFullYear();
+  const pagadosAnio=pagos.filter(p=>p.mes.startsWith(anio)&&p.estado==='pagado');
+  const totalPagado=pagadosAnio.reduce((s,p)=>s+parseFloat(p.importe),0);
+  const pend=pagos.filter(p=>p.estado==='pendiente'||p.estado==='parcial').length;
+  const importes=pagos.filter(p=>p.estado==='pagado').map(p=>parseFloat(p.importe)).sort((a,b)=>a-b);
+  const mediana=importes.length?importes[Math.floor(importes.length/2)]:null;
+  document.getElementById('met-mensual').textContent=mediana?fmt(mediana):'—';
+  document.getElementById('met-pagado').textContent=totalPagado?fmt(totalPagado):'—';
+  document.getElementById('met-meses').textContent=pagos.length;
+  document.getElementById('met-pend').textContent=pend;
+  document.getElementById('sub-date').textContent='Actualizado '+new Date().toLocaleDateString('es-ES');
+  const now=new Date();
+  const ultimos6=[];
+  for(let i=5;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    ultimos6.push({key,label:MESES[d.getMonth()]});
+  }
+  const maxImp=pagos.reduce((m,p)=>Math.max(m,parseFloat(p.importe)),0)||100;
+  const barsEl=document.getElementById('chart-bars');
+  barsEl.innerHTML='';
+  ultimos6.forEach(({key,label})=>{
+    const p=pagos.find(x=>x.mes===key);
+    const w=document.createElement('div');w.className='chart-bar-wrap';
+    const l=document.createElement('div');l.className='bar-label';
+    l.innerHTML='<span>'+label+'</span><span>'+(p?fmt(p.importe):'Sin dato')+'</span>';
+    const tr=document.createElement('div');tr.className='bar-track';
+    const fi=document.createElement('div');fi.className='bar-fill'+(p&&p.estado==='pagado'?' ok':'');
+    fi.style.width=p?Math.round((parseFloat(p.importe)/maxImp)*100)+'%':'0%';
+    tr.appendChild(fi);w.appendChild(l);w.appendChild(tr);barsEl.appendChild(w);
+  });
+  alertaVencimiento();
+}
+
+function renderHistorial(){
+  const el=document.getElementById('historial-list');
+  if(!pagos.length){el.innerHTML='<div class="empty">Todavía no hay pagos registrados.</div>';return;}
+  const sorted=[...pagos].sort((a,b)=>b.mes.localeCompare(a.mes));
+  el.innerHTML=sorted.map(p=>{
+    const [y,m]=p.mes.split('-');
+    const mn=MESES_FULL[parseInt(m)-1]+' '+y;
+    const bc=p.estado==='pagado'?'pagado':p.estado==='parcial'?'parcial':'pendiente';
+    const bl=p.estado==='pagado'?'Pagado':p.estado==='parcial'?'Parcial':'Pendiente';
+    return '<div class="card"><div style="display:flex;justify-content:space-between;"><span style="font-size:15px;font-weight:600;">'+mn+'</span><span style="font-size:15px;font-weight:600;">'+fmt(p.importe)+'</span></div>'+
+      (p.fecha?'<div style="font-size:12px;color:var(--text2);margin-top:3px;">'+new Date(p.fecha+'T00:00:00').toLocaleDateString('es-ES')+'</div>':'')+
+      (p.nota?'<div style="font-size:12px;color:var(--text2);">'+p.nota+'</div>':'')+
+      '<span class="badge '+bc+'">'+bl+'</span></div>';
+  }).join('');
+}
+
+function renderArrendador(){
+  const v=document.getElementById('arrendador-view');
+  const f=document.getElementById('arrendador-form');
+  const a=arrendador;
+  if(!a.nombre){
+    v.innerHTML='<div class="empty">No hay datos del arrendador.<br>Añade su información.</div><button class="btn-outline" onclick="editarArrendador()">Añadir datos del arrendador</button>';
+    v.style.display='';f.style.display='none';
+  } else {
+    const rows=[['Nombre',a.nombre],['Móvil',a.movil||'—'],['Dirección',a.dir||'—'],['Email',a.email||'—'],['IBAN',a.iban||'—'],['Notas',a.notas||'—']];
+    v.innerHTML='<div class="card">'+
+      '<div class="section-title">Datos del arrendador</div>'+
+      rows.map(([k,val])=>'<div class="info-row"><span class="info-key">'+k+'</span><span class="info-val">'+val+'</span></div>').join('')+
+      '</div><button class="btn-outline" onclick="editarArrendador()">Editar datos</button>';
+    v.style.display='';f.style.display='none';
+  }
+}
+
+function editarArrendador(){
+  const a=arrendador;
+  document.getElementById('a-nombre').value=a.nombre||'';
+  document.getElementById('a-movil').value=a.movil||'';
+  document.getElementById('a-dir').value=a.dir||'';
+  document.getElementById('a-email').value=a.email||'';
+  document.getElementById('a-iban').value=a.iban||'';
+  document.getElementById('a-notas').value=a.notas||'';
+  document.getElementById('arrendador-view').style.display='none';
+  document.getElementById('arrendador-form').style.display='';
+}
+
+function guardarArrendador(){
+  arrendador={
+    nombre:document.getElementById('a-nombre').value.trim(),
+    movil:document.getElementById('a-movil').value.trim(),
+    dir:document.getElementById('a-dir').value.trim(),
+    email:document.getElementById('a-email').value.trim(),
+    iban:document.getElementById('a-iban').value.trim(),
+    notas:document.getElementById('a-notas').value.trim()
+  };
+  save();renderArrendador();toast('Datos guardados correctamente');
+}
+
+function guardarPago(){
+  const mes=document.getElementById('f-mes').value;
+  const importe=parseFloat(document.getElementById('f-importe').value);
+  const estado=document.getElementById('f-estado').value;
+  const fecha=document.getElementById('f-fecha').value;
+  const nota=document.getElementById('f-nota').value.trim();
+  if(!mes||isNaN(importe)||importe<=0){toast('Rellena el mes y el importe.');return;}
+  const idx=pagos.findIndex(p=>p.mes===mes);
+  const pago={mes,importe,estado,fecha,nota};
+  if(idx>=0)pagos[idx]=pago;else pagos.push(pago);
+  save();toast('Pago guardado');showTab('historial');
+}
+
+function buildResumen(anio){
+  const lista=pagos.filter(p=>!anio||p.mes.startsWith(anio)).sort((a,b)=>a.mes.localeCompare(b.mes));
+  if(!lista.length)return'Sin pagos registrados'+(anio?' para '+anio:'')+'.';
+  const total=lista.filter(p=>p.estado==='pagado').reduce((s,p)=>s+parseFloat(p.importe),0);
+  let txt='RESUMEN DE PAGOS — PLAZA DE GARAJE\n';
+  txt+='Generado: '+new Date().toLocaleDateString('es-ES')+'\n';
+  if(arrendador.nombre)txt+='Arrendador: '+arrendador.nombre+(arrendador.movil?' | '+arrendador.movil:'')+'\n';
+  txt+='\n';
+  lista.forEach(p=>{
+    const [y,m]=p.mes.split('-');
+    txt+=MESES_FULL[parseInt(m)-1]+' '+y+' — '+fmt(p.importe)+' — '+p.estado.toUpperCase()+(p.nota?' ('+p.nota+')':'')+'\n';
+  });
+  txt+='\nTotal pagado: '+fmt(total);
+  return txt;
+}
+
+function renderExport(){
+  const sel=document.getElementById('exp-anio');
+  const anios=[...new Set(pagos.map(p=>p.mes.split('-')[0]))].sort().reverse();
+  sel.innerHTML='<option value="">Todos los años</option>'+anios.map(a=>'<option>'+a+'</option>').join('');
+  sel.onchange=()=>document.getElementById('export-preview').textContent=buildResumen(sel.value);
+  document.getElementById('export-preview').textContent=buildResumen('');
+  updateBell();
+}
+
+function copiarResumen(){
+  const txt=document.getElementById('export-preview').textContent;
+  navigator.clipboard.writeText(txt).then(()=>toast('Copiado al portapapeles')).catch(()=>toast('No se pudo copiar'));
+}
+function compartirEmail(){
+  const txt=document.getElementById('export-preview').textContent;
+  const to=arrendador.email?arrendador.email:'';
+  window.location.href='mailto:'+to+'?subject='+encodeURIComponent('Resumen pagos plaza de garaje')+'&body='+encodeURIComponent(txt);
+}
+function imprimirPDF(){
+  const txt=document.getElementById('export-preview').textContent;
+  const w=window.open('','_blank');
+  if(!w)return;
+  w.document.write('<html><head><title>Resumen plaza</title><style>body{font-family:monospace;padding:2rem;font-size:13px;white-space:pre-wrap;line-height:1.6;}</style></head><body>'+txt.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</body></html>');
+  w.document.close();w.print();
+}
+
+function showTab(name){
+  ['resumen','historial','nuevo','arrendador','exportar'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display=t===name?'block':'none';
+  });
+  document.querySelectorAll('.tab').forEach((el,i)=>{
+    el.classList.toggle('active',['resumen','historial','nuevo','arrendador','exportar'][i]===name);
+  });
+  if(name==='resumen')renderMetrics();
+  if(name==='historial')renderHistorial();
+  if(name==='nuevo'){
+    const hoy=new Date();
+    document.getElementById('f-mes').value=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0');
+    document.getElementById('f-importe').value='';
+    document.getElementById('f-fecha').value=hoy.toISOString().split('T')[0];
+    document.getElementById('f-nota').value='';
+    document.getElementById('f-estado').value='pagado';
+  }
+  if(name==='arrendador')renderArrendador();
+  if(name==='exportar')renderExport();
+}
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+updateBell();
+renderMetrics();
+</script>
+</body>
+</html>
