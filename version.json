@@ -1,0 +1,11 @@
+{
+  "version": "1.1.0",
+  "date": "2026-05-01",
+  "changes": [
+    "✅ Modo offline: la app funciona sin internet",
+    "✅ Sincronización automática con Firebase",
+    "✅ Los datos no se borran al limpiar caché",
+    "✅ Indicador de estado de conexión",
+    " Corregido: ahora carga datos locales primero"
+  ]
+}
