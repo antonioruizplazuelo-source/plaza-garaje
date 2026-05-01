@@ -104,6 +104,7 @@ pre#export-preview{background:var(--blue-frost);border-radius:var(--radius-sm);p
 #sync-status.synced{color:#81C784;}
 #sync-status.syncing{color:#FFB74D;}
 #sync-status.error{color:#E57373;}
+#sync-status.offline{color:#90CAF9;}
 </style>
 </head>
 <body>
@@ -112,7 +113,7 @@ pre#export-preview{background:var(--blue-frost);border-radius:var(--radius-sm);p
     <div><h1>🅿️ Plaza de Garaje</h1><div class="header-sub" id="sub-date">Cargando...</div></div>
     <button class="bell-btn" id="bell-btn" onclick="toggleRecordatorio()"><span id="bell-ico">🔔</span><span id="bell-txt">Rec.</span></button>
   </div>
-  <div id="sync-status">🔄 Conectando con Firebase...</div>
+  <div id="sync-status">🔄 Iniciando...</div>
   <div class="tabs">
     <button class="tab active" onclick="showTab('resumen')">Resumen</button>
     <button class="tab" onclick="showTab('historial')">Historial</button>
@@ -236,10 +237,10 @@ const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','
 const MESES_F=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 let pagos=[],arrendador={},recordatorioOn=false;
 let firebaseReady = false;
-let pendingWrites = [];
+let isOnline = navigator.onLine;
 
 // ============================================
-// FIREBASE SYNC FUNCTIONS
+// SYNC STATUS
 // ============================================
 function setSyncStatus(status) {
   const el = document.getElementById('sync-status');
@@ -251,15 +252,43 @@ function setSyncStatus(status) {
     el.textContent = '🔄 Sincronizando...';
     el.className = 'syncing';
   } else if (status === 'error') {
-    el.textContent = '⚠️ Error de sincronización';
+    el.textContent = '⚠️ Sin conexión - Usando datos locales';
     el.className = 'error';
+  } else if (status === 'offline') {
+    el.textContent = '📴 Modo sin conexión';
+    el.className = 'offline';
   } else {
-    el.textContent = '🔄 Conectando con Firebase...';
+    el.textContent = '🔄 Iniciando...';
     el.className = '';
   }
 }
 
+// ============================================
+// LOCALSTORAGE FUNCTIONS (PRIMARY FOR OFFLINE)
+// ============================================
+function loadFromLocalStorage() {
+  try { pagos = JSON.parse(localStorage.getItem('plaza_pagos') || '[]'); } catch(e) { pagos = []; }
+  try { arrendador = JSON.parse(localStorage.getItem('plaza_arr') || '{}'); } catch(e) { arrendador = {}; }
+  try { recordatorioOn = localStorage.getItem('plaza_rec') === '1'; } catch(e) { recordatorioOn = false; }
+}
+
+function saveToLocalStorage() {
+  try {
+    localStorage.setItem('plaza_pagos', JSON.stringify(pagos));
+    localStorage.setItem('plaza_arr', JSON.stringify(arrendador));
+    localStorage.setItem('plaza_rec', recordatorioOn ? '1' : '0');
+  } catch(e) {}
+}
+
+// ============================================
+// FIREBASE SYNC (BACKGROUND)
+// ============================================
 async function loadFromFirebase() {
+  if (!isOnline) {
+    setSyncStatus('offline');
+    return false;
+  }
+  
   try {
     setSyncStatus('syncing');
     
@@ -282,33 +311,33 @@ async function loadFromFirebase() {
       recordatorioOn = recSnapshot.data().enabled || false;
     }
     
+    // Save to localStorage as backup
+    saveToLocalStorage();
+    
     setSyncStatus('synced');
     firebaseReady = true;
-    
-    // Process any pending writes
-    while (pendingWrites.length > 0) {
-      const write = pendingWrites.shift();
-      await write();
-    }
-    
-    // Render UI
-    updateBell();
-    renderMetrics();
-    renderArrendador();
+    return true;
     
   } catch (error) {
     console.error('Error loading from Firebase:', error);
     setSyncStatus('error');
-    // Fallback to localStorage
-    loadFromLocalStorage();
+    firebaseReady = false;
+    return false;
   }
 }
 
 async function saveToFirebase() {
+  // Always save to localStorage first (for offline)
+  saveToLocalStorage();
+  
+  if (!isOnline) {
+    setSyncStatus('offline');
+    return; // Will sync when back online
+  }
+  
   if (!firebaseReady) {
-    // Queue the save for later
-    pendingWrites.push(saveToFirebase);
-    return;
+    setSyncStatus('error');
+    return; // Will sync when Firebase is ready
   }
   
   try {
@@ -329,27 +358,26 @@ async function saveToFirebase() {
   } catch (error) {
     console.error('Error saving to Firebase:', error);
     setSyncStatus('error');
-    // Fallback to localStorage
-    saveToLocalStorage();
+    // Data is already saved in localStorage
   }
 }
 
 // ============================================
-// LOCALSTORAGE FALLBACK
+// ONLINE/OFFLINE DETECTION
 // ============================================
-function loadFromLocalStorage() {
-  try { pagos = JSON.parse(localStorage.getItem('plaza_pagos') || '[]'); } catch(e) { pagos = []; }
-  try { arrendador = JSON.parse(localStorage.getItem('plaza_arr') || '{}'); } catch(e) { arrendador = {}; }
-  try { recordatorioOn = localStorage.getItem('plaza_rec') === '1'; } catch(e) { recordatorioOn = false; }
-}
+window.addEventListener('online', async () => {
+  isOnline = true;
+  setSyncStatus('syncing');
+  toast('🌐 Conexión restaurada', 'ok');
+  await loadFromFirebase();
+  renderAll();
+});
 
-function saveToLocalStorage() {
-  try {
-    localStorage.setItem('plaza_pagos', JSON.stringify(pagos));
-    localStorage.setItem('plaza_arr', JSON.stringify(arrendador));
-    localStorage.setItem('plaza_rec', recordatorioOn ? '1' : '0');
-  } catch(e) {}
-}
+window.addEventListener('offline', () => {
+  isOnline = false;
+  setSyncStatus('offline');
+  toast('📴 Sin conexión - Usando datos locales', 'err');
+});
 
 // ============================================
 // UTILITY FUNCTIONS
@@ -482,6 +510,13 @@ function renderArrendador() {
   }
 }
 
+function renderAll() {
+  renderMetrics();
+  renderHistorial();
+  renderArrendador();
+  updateBell();
+}
+
 function editarArrendador() {
   const a = arrendador;
   ['nombre', 'movil', 'dir', 'email', 'iban', 'notas'].forEach(k => {
@@ -505,7 +540,7 @@ async function guardarArrendador() {
     notas: document.getElementById('a-notas').value.trim()
   };
   
-  await saveToFirebase();
+  saveToFirebase();
   renderArrendador();
   toast('Datos guardados ✅', 'ok');
   
@@ -542,7 +577,7 @@ async function guardarPago() {
   if (idx >= 0) pagos[idx] = pago;
   else pagos.push(pago);
   
-  await saveToFirebase();
+  saveToFirebase();
   
   toast('Pago guardado ✅', 'ok');
   document.getElementById('f-edit-mes').value = '';
@@ -594,7 +629,7 @@ function confirmarBorrarPago(mes) {
   const mn = MESES_F[parseInt(m) - 1] + ' ' + y;
   abrirModal('¿Borrar este pago?', `Se eliminará el registro de ${mn} (${fmt(p.importe)}). No se puede deshacer.`, async () => {
     pagos = pagos.filter(x => x.mes !== mes);
-    await saveToFirebase();
+    saveToFirebase();
     renderHistorial();
     toast('Pago eliminado', 'ok');
   });
@@ -604,7 +639,7 @@ async function confirmarBorrarTodo() {
   abrirModal('⚠️ ¿Borrar TODOS los datos?', 'Se eliminarán permanentemente todos los pagos y datos del arrendador de Firebase y este dispositivo. No se puede deshacer.', async () => {
     pagos = [];
     arrendador = {};
-    await saveToFirebase();
+    saveToFirebase();
     toast('Todos los datos borrados', 'err');
     showTab('resumen');
   });
@@ -682,7 +717,7 @@ async function restaurarBackup() {
     abrirModal('¿Restaurar backup?', `Se cargarán ${data.pagos.length} pago(s). Los datos actuales serán reemplazados.`, async () => {
       pagos = data.pagos;
       arrendador = data.arrendador || {};
-      await saveToFirebase();
+      saveToFirebase();
       document.getElementById('restore-input').value = '';
       renderExportPreview();
       toast('Restaurado ✅', 'ok');
@@ -731,9 +766,31 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============================================
-// INITIALIZE APP
+// INITIALIZE APP (OFFLINE-FIRST!)
 // ============================================
-loadFromFirebase();
+
+// 1. Load from localStorage IMMEDIATELY (works offline)
+loadFromLocalStorage();
+
+// 2. Render UI immediately with local data
+renderAll();
+updateBell();
+
+// 3. Check online status
+isOnline = navigator.onLine;
+if (!isOnline) {
+  setSyncStatus('offline');
+}
+
+// 4. Try to sync with Firebase in background (if online)
+if (isOnline) {
+  loadFromFirebase().then(success => {
+    if (success) {
+      // Firebase loaded successfully, re-render with fresh data
+      renderAll();
+    }
+  });
+}
 </script>
 </body>
 </html>
