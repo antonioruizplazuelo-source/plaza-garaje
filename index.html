@@ -885,6 +885,55 @@ function showTab(name) {
 }
 
 // ============================================
+// SWIPE GESTURE NAVIGATION
+// ============================================
+(function() {
+  const TABS = ['resumen', 'historial', 'nuevo', 'arrendador', 'backup'];
+  const MIN_SWIPE_X = 50;   // px mínimos horizontales para activar
+  const MAX_RATIO_Y = 0.75; // si el gesto es más vertical que esto, se ignora
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+
+  function getCurrentTabIndex() {
+    return TABS.findIndex(t =>
+      document.getElementById('tab-' + t).style.display !== 'none'
+    );
+  }
+
+  const appEl = document.querySelector('.app');
+
+  appEl.addEventListener('touchstart', function(e) {
+    const t = e.touches[0];
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+    touchStartTime = Date.now();
+  }, { passive: true });
+
+  appEl.addEventListener('touchend', function(e) {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartX;
+    const dy = t.clientY - touchStartY;
+    const dt = Date.now() - touchStartTime;
+
+    // Ignorar gestos lentos (>500ms) o demasiado verticales
+    if (dt > 500) return;
+    if (Math.abs(dx) < MIN_SWIPE_X) return;
+    if (Math.abs(dy) / Math.abs(dx) > MAX_RATIO_Y) return;
+
+    const current = getCurrentTabIndex();
+    if (dx < 0) {
+      // Deslizar izquierda → tab siguiente
+      if (current < TABS.length - 1) showTab(TABS[current + 1]);
+    } else {
+      // Deslizar derecha → tab anterior
+      if (current > 0) showTab(TABS[current - 1]);
+    }
+  }, { passive: true });
+})();
+
+// ============================================
 // SERVICE WORKER
 // ============================================
 if ('serviceWorker' in navigator) {
