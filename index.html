@@ -916,9 +916,10 @@ function showTab(name) {
 // SWIPE GESTURE — escucha en todo el documento
 // ============================================
 (function() {
-  const MIN_SWIPE_X = 80;   // px mínimos para activar (antes 40)
+  const MIN_SWIPE_X = 120;  // px mínimos para confirmar el cambio de tab
   const MAX_Y_RATIO = 0.6;
-  const MIN_VELOCITY = 0.5; // px/ms mínimos (antes 0.3)
+  const MIN_VELOCITY = 0.8; // px/ms mínimos para confirmar con gesto rápido
+  const DRAG_DEAD_ZONE = 20; // px mínimos antes de que el contenido empiece a moverse
   let txStart = 0, tyStart = 0, tsStart = 0;
   let dragging = false;
   let dragBlocked = false;
@@ -943,7 +944,7 @@ function showTab(name) {
       return;
     }
 
-    if (Math.abs(dx) > 8) {
+    if (Math.abs(dx) > DRAG_DEAD_ZONE) {
       dragging = true;
       const track = document.getElementById('carousel-track');
       track.classList.add('dragging');
