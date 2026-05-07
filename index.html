@@ -102,10 +102,10 @@ pre#export-preview{background:var(--blue-frost);border-radius:var(--radius-sm);p
 .toast.err{background:var(--red);}
 .toast.sync{background:#9C27B0;}
 .section{padding-top:1rem;}
-.carousel-viewport{overflow:hidden;width:100%;}
-.carousel-track{display:flex;width:500%;will-change:transform;transition:transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94);}
+.carousel-viewport{overflow:hidden;position:relative;touch-action:pan-y;}
+.carousel-track{display:flex;height:100%;will-change:transform;transition:transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94);}
 .carousel-track.dragging{transition:none;}
-.carousel-slide{width:20%;flex-shrink:0;}
+.carousel-slide{min-width:100vw;width:100vw;flex-shrink:0;overflow-y:auto;overflow-x:hidden;}
 #sync-status{font-size:10px;color:rgba(255,255,255,0.7);text-align:center;padding:4px 0;}
 #sync-status.synced{color:#81C784;}
 #sync-status.syncing{color:#FFB74D;}
@@ -880,18 +880,19 @@ function renderExportPreview() {
 }
 
 // ============================================
-// CAROUSEL NAVIGATION
+// CAROUSEL NAVIGATION (técnica FaR-Rmacia)
 // ============================================
 const TABS_ORDER = ['resumen', 'historial', 'nuevo', 'arrendador', 'backup'];
 let currentTabIndex = 0;
+let swipeStartX = 0, swipeStartY = 0, swipeDragging = false, swipeCurrentOffset = 0;
 
 function showTab(name) {
   const idx = TABS_ORDER.indexOf(name);
   if (idx === -1) return;
   currentTabIndex = idx;
   const track = document.getElementById('carousel-track');
-  track.classList.remove('dragging');
-  track.style.transform = 'translateX(-' + (idx * 20) + '%)';
+  track.style.transition = 'transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94)';
+  track.style.transform = 'translateX(-' + (idx * window.innerWidth) + 'px)';
   document.querySelectorAll('.tab').forEach((el, i) => {
     el.classList.toggle('active', i === idx);
   });
@@ -912,75 +913,51 @@ function showTab(name) {
   if (name === 'backup') renderExportPreview();
 }
 
-// ============================================
-// SWIPE GESTURE — escucha en todo el documento
-// ============================================
-(function() {
-  const MIN_SWIPE_X = 120;  // px mínimos para confirmar el cambio de tab
-  const MAX_Y_RATIO = 0.6;
-  const MIN_VELOCITY = 0.8; // px/ms mínimos para confirmar con gesto rápido
-  const DRAG_DEAD_ZONE = 20; // px mínimos antes de que el contenido empiece a moverse
-  let txStart = 0, tyStart = 0, tsStart = 0;
-  let dragging = false;
-  let dragBlocked = false;
+function initSwipeGestures() {
+  const viewport = document.querySelector('.carousel-viewport');
+  const track = document.getElementById('carousel-track');
+  if (!viewport || !track) return;
 
-  document.addEventListener('touchstart', function(e) {
-    const t = e.touches[0];
-    txStart = t.clientX;
-    tyStart = t.clientY;
-    tsStart = Date.now();
-    dragging = false;
-    dragBlocked = false;
+  viewport.addEventListener('touchstart', e => {
+    swipeStartX = e.touches[0].clientX;
+    swipeStartY = e.touches[0].clientY;
+    swipeDragging = true;
+    track.style.transition = 'none';
+    swipeCurrentOffset = currentTabIndex * window.innerWidth;
   }, { passive: true });
 
-  document.addEventListener('touchmove', function(e) {
-    if (dragBlocked) return;
-    const t = e.touches[0];
-    const dx = t.clientX - txStart;
-    const dy = t.clientY - tyStart;
+  viewport.addEventListener('touchmove', e => {
+    if (!swipeDragging) return;
+    const dx = e.touches[0].clientX - swipeStartX;
+    const dy = e.touches[0].clientY - swipeStartY;
+    // Si es más vertical que horizontal, no hacer swipe
+    if (Math.abs(dy) > Math.abs(dx) * 1.5) return;
+    const maxOffset = (TABS_ORDER.length - 1) * window.innerWidth;
+    const raw = swipeCurrentOffset - dx;
+    const clamped = Math.max(0, Math.min(maxOffset, raw));
+    track.style.transform = 'translateX(-' + clamped + 'px)';
+  }, { passive: true });
 
-    if (!dragging && Math.abs(dy) > Math.abs(dx) * (1 / MAX_Y_RATIO)) {
-      dragBlocked = true;
+  viewport.addEventListener('touchend', e => {
+    if (!swipeDragging) return;
+    swipeDragging = false;
+    track.style.transition = 'transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94)';
+    const dx = e.changedTouches[0].clientX - swipeStartX;
+    const dy = e.changedTouches[0].clientY - swipeStartY;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) {
+      // No llega — snap de vuelta
+      track.style.transform = 'translateX(-' + (currentTabIndex * window.innerWidth) + 'px)';
       return;
     }
-
-    if (Math.abs(dx) > DRAG_DEAD_ZONE) {
-      dragging = true;
-      const track = document.getElementById('carousel-track');
-      track.classList.add('dragging');
-      const baseX = -(currentTabIndex * 20);
-      const pct = (dx / window.innerWidth) * 100;
-      let newX = baseX + pct;
-      if (currentTabIndex === 0 && dx > 0) newX = baseX + pct * 0.2;
-      if (currentTabIndex === TABS_ORDER.length - 1 && dx < 0) newX = baseX + pct * 0.2;
-      track.style.transform = 'translateX(' + newX + '%)';
-    }
-  }, { passive: true });
-
-  document.addEventListener('touchend', function(e) {
-    if (!dragging) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - txStart;
-    const dy = t.clientY - tyStart;
-    const dt = Date.now() - tsStart;
-    const velocity = Math.abs(dx) / dt;
-
-    const shouldSwipe = Math.abs(dx) > MIN_SWIPE_X || velocity > MIN_VELOCITY;
-
-    if (shouldSwipe && Math.abs(dy) < Math.abs(dx) * (1 / MAX_Y_RATIO)) {
-      if (dx < 0 && currentTabIndex < TABS_ORDER.length - 1) {
-        showTab(TABS_ORDER[currentTabIndex + 1]);
-      } else if (dx > 0 && currentTabIndex > 0) {
-        showTab(TABS_ORDER[currentTabIndex - 1]);
-      } else {
-        showTab(TABS_ORDER[currentTabIndex]);
-      }
+    if (dx < -40 && currentTabIndex < TABS_ORDER.length - 1) {
+      showTab(TABS_ORDER[currentTabIndex + 1]);
+    } else if (dx > 40 && currentTabIndex > 0) {
+      showTab(TABS_ORDER[currentTabIndex - 1]);
     } else {
-      showTab(TABS_ORDER[currentTabIndex]);
+      track.style.transform = 'translateX(-' + (currentTabIndex * window.innerWidth) + 'px)';
     }
-    dragging = false;
   }, { passive: true });
-})();
+}
 
 // ============================================
 // SERVICE WORKER
@@ -996,6 +973,7 @@ displayVersion();
 loadFromLocalStorage();
 renderAll();
 updateBell();
+initSwipeGestures();
 
 isOnline = navigator.onLine;
 if (!isOnline) {
