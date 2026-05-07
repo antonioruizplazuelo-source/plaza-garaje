@@ -1,5 +1,12 @@
-const CACHE = 'plaza-garaje-v1';
-const FILES = ['/', '/index.html', '/manifest.json'];
+const CACHE = 'plaza-garaje-v2';
+const FILES = [
+  '/plaza-garaje/',
+  '/plaza-garaje/index.html',
+  '/plaza-garaje/manifest.json',
+  '/plaza-garaje/sw.js',
+  '/plaza-garaje/icon-192.png',
+  '/plaza-garaje/icon-512.png'
+];
 
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -17,6 +24,6 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('/index.html')))
+    caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('/plaza-garaje/index.html')))
   );
 });
