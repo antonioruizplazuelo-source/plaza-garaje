@@ -102,10 +102,16 @@ pre#export-preview{background:var(--blue-frost);border-radius:var(--radius-sm);p
 .toast.err{background:var(--red);}
 .toast.sync{background:#9C27B0;}
 .section{padding-top:1rem;}
-.carousel-viewport{overflow:hidden;width:100%;}
-.carousel-track{display:flex;width:500%;will-change:transform;transition:transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94);}
-.carousel-track.dragging{transition:none;}
-.carousel-slide{width:20%;flex-shrink:0;}
+.app{overflow:hidden;position:relative;}
+@keyframes slideInRight{from{transform:translateX(100%)}to{transform:translateX(0)}}
+@keyframes slideInLeft{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+@keyframes slideOutRight{from{transform:translateX(0)}to{transform:translateX(100%)}}
+@keyframes slideOutLeft{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+.slide-in-right{animation:slideInRight 0.32s cubic-bezier(0.25,0.46,0.45,0.94) forwards;}
+.slide-in-left{animation:slideInLeft 0.32s cubic-bezier(0.25,0.46,0.45,0.94) forwards;}
+.slide-out-right{animation:slideOutRight 0.32s cubic-bezier(0.25,0.46,0.45,0.94) forwards;}
+.slide-out-left{animation:slideOutLeft 0.32s cubic-bezier(0.25,0.46,0.45,0.94) forwards;}
+.tab-animating{position:absolute;top:0;left:0;width:100%;pointer-events:none;}
 #sync-status{font-size:10px;color:rgba(255,255,255,0.7);text-align:center;padding:4px 0;}
 #sync-status.synced{color:#81C784;}
 #sync-status.syncing{color:#FFB74D;}
@@ -146,9 +152,6 @@ pre#export-preview{background:var(--blue-frost);border-radius:var(--radius-sm);p
   </div>
 </div>
 <div class="app">
-<div class="carousel-viewport">
-<div class="carousel-track" id="carousel-track">
-  <div class="carousel-slide">
   <div id="tab-resumen" class="section">
     <div id="alert-box"></div>
     <div class="metric-grid">
@@ -164,15 +167,11 @@ pre#export-preview{background:var(--blue-frost);border-radius:var(--radius-sm);p
     <div id="chart-bars"></div>
     <button class="btn-primary" style="margin-top:1rem;" onclick="showTab('nuevo')">+ Registrar pago</button>
   </div>
-  </div>
-  <div class="carousel-slide">
-  <div id="tab-historial" class="section">
+  <div id="tab-historial" class="section" style="display:none;">
     <div class="section-title">Todos los pagos</div>
     <div id="historial-list"></div>
   </div>
-  </div>
-  <div class="carousel-slide">
-  <div id="tab-nuevo" class="section">
+  <div id="tab-nuevo" class="section" style="display:none;">
     <div class="card">
       <div class="section-title" id="form-title">Registrar pago</div>
       <div class="form-row"><label class="form-label">Mes y año</label><input type="month" id="f-mes"/></div>
@@ -187,9 +186,7 @@ pre#export-preview{background:var(--blue-frost);border-radius:var(--radius-sm);p
       <button class="btn-outline" onclick="cancelarEdicion()" id="btn-cancelar" style="display:none;">Cancelar edición</button>
     </div>
   </div>
-  </div>
-  <div class="carousel-slide">
-  <div id="tab-arrendador" class="section">
+  <div id="tab-arrendador" class="section" style="display:none;">
     <div id="arrendador-view"></div>
     <div id="arrendador-form" style="display:none;">
       <div class="card">
@@ -204,9 +201,7 @@ pre#export-preview{background:var(--blue-frost);border-radius:var(--radius-sm);p
       </div>
     </div>
   </div>
-  </div>
-  <div class="carousel-slide">
-  <div id="tab-backup" class="section">
+  <div id="tab-backup" class="section" style="display:none;">
     <div class="backup-box">
       <h3>💾 Crear Backup</h3>
       <p>Guarda todos tus datos (pagos y arrendador) y compártelos para restaurarlos en otro dispositivo.</p>
@@ -240,10 +235,6 @@ pre#export-preview{background:var(--blue-frost);border-radius:var(--radius-sm);p
       Plaza de Garaje <span id="footer-version">v1.0.0</span> | © 2026
     </div>
   </div>
-  </div>
-  </div>
-</div>
-</div>
 </div>
 
 <!-- Modal de Actualización -->
@@ -880,21 +871,26 @@ function renderExportPreview() {
 }
 
 // ============================================
-// CAROUSEL NAVIGATION
+// SLIDE NAVIGATION
 // ============================================
 const TABS_ORDER = ['resumen', 'historial', 'nuevo', 'arrendador', 'backup'];
 let currentTabIndex = 0;
+let tabAnimating = false;
 
-function showTab(name) {
-  const idx = TABS_ORDER.indexOf(name);
-  if (idx === -1) return;
-  currentTabIndex = idx;
-  const track = document.getElementById('carousel-track');
-  track.classList.remove('dragging');
-  track.style.transform = 'translateX(-' + (idx * 20) + '%)';
+function showTab(name, direction) {
+  const newIdx = TABS_ORDER.indexOf(name);
+  if (newIdx === -1) return;
+
+  const oldName = TABS_ORDER[currentTabIndex];
+  const oldEl = document.getElementById('tab-' + oldName);
+  const newEl = document.getElementById('tab-' + name);
+
+  // Actualiza tabs del header
   document.querySelectorAll('.tab').forEach((el, i) => {
-    el.classList.toggle('active', i === idx);
+    el.classList.toggle('active', i === newIdx);
   });
+
+  // Ejecuta lógica de render del tab entrante
   if (name === 'resumen') renderMetrics();
   if (name === 'historial') renderHistorial();
   if (name === 'nuevo') {
@@ -910,6 +906,50 @@ function showTab(name) {
   }
   if (name === 'arrendador') renderArrendador();
   if (name === 'backup') renderExportPreview();
+
+  // Si es la misma tab o sin dirección definida, simplemente muestra sin animar
+  if (newIdx === currentTabIndex || direction === undefined) {
+    TABS_ORDER.forEach(t => {
+      document.getElementById('tab-' + t).style.display = t === name ? 'block' : 'none';
+    });
+    currentTabIndex = newIdx;
+    return;
+  }
+
+  if (tabAnimating) {
+    // Si hay animación en curso, termina la anterior inmediatamente
+    TABS_ORDER.forEach(t => {
+      const el = document.getElementById('tab-' + t);
+      el.classList.remove('slide-in-right','slide-in-left','slide-out-right','slide-out-left','tab-animating');
+      el.style.display = 'none';
+    });
+    tabAnimating = false;
+  }
+
+  // direction: 1 = ir a la derecha (nuevo tab viene desde la derecha), -1 = ir a la izquierda
+  const inClass  = direction > 0 ? 'slide-in-right'  : 'slide-in-left';
+  const outClass = direction > 0 ? 'slide-out-left'  : 'slide-out-right';
+
+  tabAnimating = true;
+
+  // Prepara el tab saliente
+  oldEl.style.display = 'block';
+  oldEl.classList.add('tab-animating', outClass);
+
+  // Prepara el tab entrante
+  newEl.style.display = 'block';
+  newEl.classList.add(inClass);
+
+  currentTabIndex = newIdx;
+
+  setTimeout(() => {
+    TABS_ORDER.forEach(t => {
+      const el = document.getElementById('tab-' + t);
+      el.classList.remove('slide-in-right','slide-in-left','slide-out-right','slide-out-left','tab-animating');
+      el.style.display = t === name ? 'block' : 'none';
+    });
+    tabAnimating = false;
+  }, 340);
 }
 
 // ============================================
@@ -919,71 +959,42 @@ function showTab(name) {
   const MIN_SWIPE_X = 40;
   const MAX_Y_RATIO = 0.6;
   let txStart = 0, tyStart = 0, tsStart = 0;
-  let dragging = false;
-  let dragBlocked = false;
+  let swipeBlocked = false;
 
   document.addEventListener('touchstart', function(e) {
-    const t = e.touches[0];
-    txStart = t.clientX;
-    tyStart = t.clientY;
+    txStart = e.touches[0].clientX;
+    tyStart = e.touches[0].clientY;
     tsStart = Date.now();
-    dragging = false;
-    dragBlocked = false;
+    swipeBlocked = false;
   }, { passive: true });
 
   document.addEventListener('touchmove', function(e) {
-    if (dragBlocked) return;
-    const t = e.touches[0];
-    const dx = t.clientX - txStart;
-    const dy = t.clientY - tyStart;
-
-    // Si el gesto es más vertical que horizontal, bloqueamos para no interferir con scroll
-    if (!dragging && Math.abs(dy) > Math.abs(dx) * (1 / MAX_Y_RATIO)) {
-      dragBlocked = true;
-      return;
-    }
-
-    if (Math.abs(dx) > 8) {
-      dragging = true;
-      // Arrastra el carrusel en tiempo real
-      const track = document.getElementById('carousel-track');
-      track.classList.add('dragging');
-      const baseX = -(currentTabIndex * 20);
-      // Convertir px a porcentaje del track (track = 500% del viewport)
-      const pct = (dx / window.innerWidth) * 100;
-      // Resistencia en los extremos
-      let newX = baseX + pct;
-      if (currentTabIndex === 0 && dx > 0) newX = baseX + pct * 0.2;
-      if (currentTabIndex === TABS_ORDER.length - 1 && dx < 0) newX = baseX + pct * 0.2;
-      track.style.transform = 'translateX(' + newX + '%)';
+    if (swipeBlocked) return;
+    const dx = e.touches[0].clientX - txStart;
+    const dy = e.touches[0].clientY - tyStart;
+    // Si el movimiento es claramente vertical, bloqueamos para no interferir con scroll
+    if (Math.abs(dy) > Math.abs(dx) * (1 / MAX_Y_RATIO)) {
+      swipeBlocked = true;
     }
   }, { passive: true });
 
   document.addEventListener('touchend', function(e) {
-    if (!dragging) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - txStart;
-    const dy = t.clientY - tyStart;
+    if (swipeBlocked) return;
+    const dx = e.changedTouches[0].clientX - txStart;
+    const dy = e.changedTouches[0].clientY - tyStart;
     const dt = Date.now() - tsStart;
+    const velocity = Math.abs(dx) / dt;
 
-    // Velocidad o distancia suficiente para cambiar tab
-    const velocity = Math.abs(dx) / dt; // px/ms
-    const shouldSwipe = Math.abs(dx) > MIN_SWIPE_X || velocity > 0.3;
+    if ((Math.abs(dx) < MIN_SWIPE_X && velocity < 0.3)) return;
+    if (Math.abs(dy) > Math.abs(dx) * (1 / MAX_Y_RATIO)) return;
 
-    if (shouldSwipe && Math.abs(dy) < Math.abs(dx) * (1 / MAX_Y_RATIO)) {
-      if (dx < 0 && currentTabIndex < TABS_ORDER.length - 1) {
-        showTab(TABS_ORDER[currentTabIndex + 1]);
-      } else if (dx > 0 && currentTabIndex > 0) {
-        showTab(TABS_ORDER[currentTabIndex - 1]);
-      } else {
-        // En el extremo, vuelve a la posición actual con animación
-        showTab(TABS_ORDER[currentTabIndex]);
-      }
-    } else {
-      // No llega, vuelve a la posición actual
-      showTab(TABS_ORDER[currentTabIndex]);
+    if (dx < 0 && currentTabIndex < TABS_ORDER.length - 1) {
+      // Desliza izquierda → tab siguiente (viene desde la derecha)
+      showTab(TABS_ORDER[currentTabIndex + 1], 1);
+    } else if (dx > 0 && currentTabIndex > 0) {
+      // Desliza derecha → tab anterior (viene desde la izquierda)
+      showTab(TABS_ORDER[currentTabIndex - 1], -1);
     }
-    dragging = false;
   }, { passive: true });
 })();
 
