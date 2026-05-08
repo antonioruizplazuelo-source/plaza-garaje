@@ -105,7 +105,7 @@ pre#export-preview{background:var(--blue-frost);border-radius:var(--radius-sm);p
 .carousel-viewport{overflow:hidden;position:relative;touch-action:pan-y;}
 .carousel-track{display:flex;height:100%;will-change:transform;transition:transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94);}
 .carousel-track.dragging{transition:none;}
-.carousel-slide{min-width:100vw;width:100vw;flex-shrink:0;overflow-y:auto;overflow-x:hidden;box-sizing:border-box;padding:1rem 1rem 5rem;}
+.carousel-slide{min-width:100%;width:100%;flex-shrink:0;overflow-y:auto;overflow-x:hidden;box-sizing:border-box;padding:1rem 1rem 5rem;}
 .carousel-slide > *{max-width:100%;box-sizing:border-box;}
 #sync-status{font-size:10px;color:rgba(255,255,255,0.7);text-align:center;padding:4px 0;}
 #sync-status.synced{color:#81C784;}
@@ -893,7 +893,7 @@ function showTab(name) {
   currentTabIndex = idx;
   const track = document.getElementById('carousel-track');
   track.style.transition = 'transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94)';
-  track.style.transform = 'translateX(-' + (idx * window.innerWidth) + 'px)';
+  track.style.transform = 'translateX(-' + (idx * track.parentElement.offsetWidth) + 'px)';
   document.querySelectorAll('.tab').forEach((el, i) => {
     el.classList.toggle('active', i === idx);
   });
@@ -924,7 +924,7 @@ function initSwipeGestures() {
     swipeStartY = e.touches[0].clientY;
     swipeDragging = true;
     track.style.transition = 'none';
-    swipeCurrentOffset = currentTabIndex * window.innerWidth;
+    swipeCurrentOffset = currentTabIndex * viewport.offsetWidth;
   }, { passive: true });
 
   viewport.addEventListener('touchmove', e => {
@@ -933,7 +933,7 @@ function initSwipeGestures() {
     const dy = e.touches[0].clientY - swipeStartY;
     // Si es más vertical que horizontal, no hacer swipe
     if (Math.abs(dy) > Math.abs(dx) * 1.5) return;
-    const maxOffset = (TABS_ORDER.length - 1) * window.innerWidth;
+    const maxOffset = (TABS_ORDER.length - 1) * viewport.offsetWidth;
     const raw = swipeCurrentOffset - dx;
     const clamped = Math.max(0, Math.min(maxOffset, raw));
     track.style.transform = 'translateX(-' + clamped + 'px)';
@@ -947,7 +947,7 @@ function initSwipeGestures() {
     const dy = e.changedTouches[0].clientY - swipeStartY;
     if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) {
       // No llega — snap de vuelta
-      track.style.transform = 'translateX(-' + (currentTabIndex * window.innerWidth) + 'px)';
+      track.style.transform = 'translateX(-' + (currentTabIndex * viewport.offsetWidth) + 'px)';
       return;
     }
     if (dx < -40 && currentTabIndex < TABS_ORDER.length - 1) {
@@ -955,7 +955,7 @@ function initSwipeGestures() {
     } else if (dx > 40 && currentTabIndex > 0) {
       showTab(TABS_ORDER[currentTabIndex - 1]);
     } else {
-      track.style.transform = 'translateX(-' + (currentTabIndex * window.innerWidth) + 'px)';
+      track.style.transform = 'translateX(-' + (currentTabIndex * viewport.offsetWidth) + 'px)';
     }
   }, { passive: true });
 }
